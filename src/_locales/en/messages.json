@@ -1,0 +1,36 @@
+{
+   "extDescription": {
+      "description": "The extension description.",
+      "message": "2FA extension"
+   },
+   "extName": {
+      "description": "The extension name.",
+      "message": "2Fa"
+   },
+   "extShortname": {
+      "description": "The short name.",
+      "message": "2FA"
+   },
+   
+   "word_tokens": {
+      "description": "Tokens",
+      "message": "Tokens"
+   },
+   "word_settings": {
+      "description": "Settings",
+      "message": "Settings"
+   },
+   "word_about": {
+      "description": "About",
+      "message": "About"
+   },
+   
+   "about_crafted": {
+      "description": "2FA is hand crafted by Hyenas, with love! :3",
+      "message": "2FA is hand crafted by Hyenas, with love! :3"
+   },
+   "source_code": {
+      "description": "Get the source code here!",
+      "message": "Get the source code here!"
+   }
+}
