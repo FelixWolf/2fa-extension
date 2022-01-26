@@ -1,30 +1,40 @@
 {
-  "name": "__MSG_extName__",
-  "version": "0.5",
-  "description": "__MSG_extDescription__",
-  "default_locale": "en",
-  "browser_action": {
-    "default_icon": "res/img/icon16.png",
-    "default_popup": "popup.html"
-  },
-  "icons": {
-    "16": "res/img/icon16.png",
-    "32": "res/img/icon32.png",
-    "48": "res/img/icon48.png",
-    "128": "res/img/icon128.png"
-  },
-  "web_accessible_resources": [
-    "res/img/*",
-    "res/style/*"
-  ],
-  "background": {
-    "scripts": [
-      "/res/js/settings.js",
-      "/res/js/background.js"
-    ]
-  },
-  "permissions": [
-    "contextMenus"
-  ],
-  "manifest_version": 2
+    "name": "__MSG_extName__",
+    "version": "0.5",
+    "description": "__MSG_extDescription__",
+    "default_locale": "en",
+    "browser_action": {
+        "default_icon": "res/img/icon16.png",
+        "default_popup": "popup.htm"
+    },
+    "icons": {
+        "16": "res/img/icon16.png",
+        "32": "res/img/icon32.png",
+        "48": "res/img/icon48.png",
+        "128": "res/img/icon128.png"
+    },
+    "web_accessible_resources": [
+        "res/img/*",
+        "res/style/*"
+    ],
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["/res/js/content.js"]
+        }
+    ],
+    "background": {
+        "persistent": true,
+        "scripts": [
+            "/res/js/base.js",
+            "/res/js/hashing.js",
+            "/res/js/2fastore.js",
+            "/res/js/settings.js",
+            "/res/js/background.js"
+        ]
+    },
+    "permissions": [
+        "contextMenus"
+    ],
+    "manifest_version": 2
 }

@@ -1,5 +1,5 @@
-const baseEncoding = (function(){
-    base32 = (function(){
+const baseEncoding = new (function(){
+    this.base32 = new (function(){
         const pad = "=",
               alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
         this.encode = function(s){
@@ -69,7 +69,7 @@ const baseEncoding = (function(){
         };
         this.decode = function(s){
             const len = s.length, apad = alphabet + pad;
-            let v,x,r=0,bits=0,c,o='';
+            let v,x,r=0,bits=0,c,o=[];
 
             s = s.toUpperCase();
 
@@ -80,7 +80,7 @@ const baseEncoding = (function(){
                     bits += 5;
                     if (bits >= 8) {
                         c = (x >> (bits - 8)) & 0xff;
-                        o.append(c);
+                        o.push(c);
                         bits -= 8;
                     }
                 }
@@ -91,7 +91,7 @@ const baseEncoding = (function(){
                 // Don't append a null terminator.
                 // See the comment at the top about why this sucks.
                 if (c!==0) {
-                    o.append(c);
+                    o.push(c);
                 }
             }
             return new Uint8Array(o);

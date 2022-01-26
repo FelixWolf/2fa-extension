@@ -6,8 +6,8 @@ class URIUserInfo{
                 if(username[i] == ":")
                     break;
             }
-            this.username = username.substring(0,i) || null;
-            this.password = i==l?null:username.substring(i+1, l);
+            this.username = decodeURIComponent(username.substring(0,i)) || null;
+            this.password = i==l?null:decodeURIComponent(username.substring(i+1, l));
         }else{
             this.username = username || null;
             this.password = password || null;
@@ -24,6 +24,7 @@ class URIUserInfo{
         return result;
     }
 }
+
 class URIHost{
     constructor(name, port){
         if(name !== undefined && port === undefined){
@@ -46,7 +47,7 @@ class URIHost{
             this.port = port || null;
         }
     }
-    toString(a){
+    toString(){
         let result = "";
         if(this.name !== null)
             result += this.name;
@@ -55,6 +56,7 @@ class URIHost{
         return result;
     }
 }
+
 class URIAuthority{
     constructor(authority){
         this.userinfo = new URIUserInfo();
@@ -72,7 +74,16 @@ class URIAuthority{
             this.host = new URIHost(authority.substring(s, l));
         }
     }
+    toString(){
+        let result = "";
+        const uinfo = this.userinfo.toString();
+        if(uinfo !== null)
+            result += `${uinfo}@`;
+        result += this.host.toString();
+        return result;
+    }
 }
+
 class URIQuery{
     constructor(query){
         this.query = [];
@@ -104,7 +115,7 @@ class URIQuery{
                         value = query.substring(s+1, i);
                     }
                     s = i;
-                    this.query.push([key, value]);
+                    this.query.push([decodeURIComponent(key), decodeURIComponent(value)]);
                 }
             }
         }
@@ -157,9 +168,10 @@ class URIQuery{
         return result;
     }
 }
+
 class URI{
     constructor(location){
-        this.scheme = "undefined";
+        this.scheme = "";
         this.authority = new URIAuthority();
         this.path = "";
         this.query = new URIQuery();
@@ -186,35 +198,156 @@ class URI{
                 this.query = new URIQuery(location.substring(s, i));
             }
             if(i<l && location[i] == "#"){
-                this.fragment = location.substring(i, l);
+                this.fragment = decodeURIComponent(location.substring(i, l));
             }
         }
+        if(this.path === "")
+            this.path == "/";
+    }
+    toString(){
+        let result = `${this.scheme}://`;
+        result += `${this.authority.toString()}`;
+        result += `${this.path}`;
+        result += this.query.toString();
+        if(this.fragment !== "")
+            result += `${this.fragment}`;
+        return result;
     }
 }
-//2fa://username@website/label/token?encoding=[base64|base32|base16]&length=[int]&chars=[chars]&format=[format]&timeserver=[url]#test
+//2fa://username@website/token?label=[label]&encoding=[base64|base32|base16]&length=[int]&chars=[chars]&format=[format]&timeserver=[url]#test
 
 class TFAEntry{
     constructor(opt){
+        this.keys = [
+            "username",
+            "website",
+            "secret",
+            "label",
+            "encoding",
+            "length",
+            "chars",
+            "format",
+            "timeserver"
+        ];
         if(typeof opt === "string"){
             this.fromURI(opt);
         }else if(typeof opt === "object"){
-            
+            this.fromObject(opt);
         }
     }
     fromURI(uri){
         let result = new URI(uri);
-        this.username = result.authority.username;
-        this.website = result.authority.host
+        if(result.scheme != "2fa")
+            throw Error("Invalid URI!");
+        this.username = result.authority.userinfo.username;
+        this.website = result.authority.host;
+        let path = result.path.split("/").slice(1);
+        this.secret = decodeURIComponent(path[0]);
+        this.label = result.query.get("label")[0];
+        this.encoding = result.query.get("encoding")[0] || "base32";
+        this.length = result.query.get("length")[0];
+        this.chars = result.query.get("chars")[0];
+        this.format = result.query.get("format")[0];
+        this.timeserver = result.query.get("timeserver")[0];
+    }
+    toURI(){
+        let result = new URI();
+        result.scheme = "2fa";
+        result.authority.userinfo.username = this.username;
+        result.authority.host = this.website;
+        result.path = `/${encodeURIComponent(this.secret)}`;
+        if(this.label) result.query.add("label", this.label);
+        if(this.encoding) result.query.add("encoding", this.encoding);
+        if(this.length) result.query.add("length", this.length);
+        if(this.chars) result.query.add("chars", this.chars);
+        if(this.format) result.query.add("format", this.format);
+        if(this.timeserver) result.query.add("timeserver", this.timeserver);
+        return result.toString();
+    }
+    fromObject(obj){
+        for(let k of this.keys)
+            this[k] = obj[k] || null;
+    }
+    toObject(){
+        let result = {};
+        for(let k of this.keys){
+            if(this[k] !== undefined)
+                result[k] = this[k];
+        }
+        return result;
     }
 }
+
 class TFAStore{
     constructor(){
-        
+        this.load();
     }
-    store(entry){
-        
+    load(){
+        let tmp = window.localStorage.getItem("2faStore");
+        if(tmp)
+            this.store = JSON.parse(tmp);
+        else
+            this.store = {};
+    }
+    save(){
+        window.localStorage.setItem("2faStore", JSON.stringify(this.store));
+    }
+    delete(entry){
+        delete this.store[entry.label];
+        this.save();
+    }
+    add(entry){
+        this.store[entry.label] = entry;
+        this.save();
     }
     get(name){
-        
+        return this.store[name];
     }
+    list(){
+        return Object.keys(this.store);
+    }
+    findByWebsite(name){
+        name = name.toLowerCase()
+        for(let entry of this.store){
+            if(entry.website.toLowerCase() == name)
+                return entry;
+        }
+        return null;
+    }
+}
+
+function getTFAToken(entry, time){
+    let secret = null;
+    switch(entry.encoding){
+        case "base32":
+        default:
+            secret = baseEncoding.base32.decode(entry.secret);
+            break
+    }
+    
+    if(secret == null)
+        throw Error("Couldn't decode secret");
+    
+    const hmac = new HMAC(secret);
+    
+    //Create timestamp
+    const timestamp = new ArrayBuffer(8);
+    const timestampdv = new DataView(timestamp);
+    if(time instanceof Date)
+        timestampdv.setBigUint64(0, BigInt(+time)/1000n/30n);
+    else
+        timestampdv.setBigUint64(0, (BigInt(+new Date())/1000n/30n) + BigInt(time|0));
+    
+    //Update hmac
+    hmac.update(new Uint8Array(timestamp));
+    
+    //Digest it
+    const digest = hmac.digest();
+    const digestdv = new DataView(digest.buffer);
+    
+    //Truncate it
+    truncatedHash = (digestdv.getUint32(digest[19]&0xF) & 0x7FFFFFFF) % 1000000;
+    
+    //Pad it and return it
+    return String(truncatedHash).padStart(6,0);
 }
