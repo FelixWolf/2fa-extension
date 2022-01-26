@@ -1,7 +1,174 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <title>2FA Options</title>
+        <link rel="icon" href="res/img/icon256.png" />
+        <script src="res/js/base.js"></script>
+        <script src="res/js/hashing.js"></script>
+        <script src="res/js/2fastore.js"></script>
+        <script src="res/js/qr.js"></script>
+        <script src="res/js/settings.js"></script>
+        <script src="res/js/options.js"></script>
+        <style>
+            html.debugcss *::before{
+                content:attr(class);
+                color:rgba(0,0,0,0.25);
+                border:2px solid rgba(255,0,0,0.25);
+                width: 100%;
+                height: 100%;
+                position: absolute;
+                box-sizing: border-box;
+                z-index:9999;
+            }
+            ::-webkit-scrollbar {width: 10px;}
+            ::-webkit-scrollbar-track {background: rgba(240,240,240,0.0);}
+            ::-webkit-scrollbar-thumb {background: rgba(128,128,128,0.5);border-radius:4px;}
+            ::-webkit-scrollbar-thumb:hover {background: rgba(100,100,100,0.5);}
+            
+            html,body{
+                width:100%;
+                height:100%;
+                margin:0;
+                padding:0;
+            }
+            
+            *{
+                position: relative;
+                box-sizing: border-box;
+            }
+            
+            .content {
+                width:100%;
+                height:100%;
+                display: grid;
+                grid-template-columns: 50px 350px 2fr;
+                grid-template-rows: 40px 1fr 24px;
+                grid-column-gap: 0px;
+                grid-row-gap: 0px;
+            }
+            .corner{
+                grid-area: 1 / 1 / 2 / 2;
+                background:
+                    center / contain no-repeat url(res/img/icon256.png),
+                    linear-gradient(140deg, #e2e2e2 25%,#dbdbdb 75%,#d1d1d1 76%,#fefefe 100%);
+            }
+            .titlebar {
+                /*grid-area: 1 / 1 / 2 / 4;*/
+                grid-area: 1 / 2 / 2 / 4;
+                background: linear-gradient(to bottom, #e2e2e2 0%,#dbdbdb 50%,#d1d1d1 51%,#fefefe 100%);
+                display:flex;
+                align-content: center;
+                justify-content: flex-start;
+                place-items: center;
+                padding-left:8px;
+                gap: 8px;
+            }
+            .titlebar > .title{
+                font-size:24px;
+            }
+            .titlebar > .seperator{
+                margin:0 8px 0 8px;
+                height:50%;
+                width:1px;
+                background:rgba(0,0,0,0.5);
+            }
+            
+            .sidebar {
+                /*grid-area: 2 / 1 / 3 / 2;*/
+                grid-area: 2 / 1 / 4 / 2;
+                background: linear-gradient(to right, #e2e2e2 0%,#dbdbdb 50%,#d1d1d1 51%,#fefefe 100%);
+                display:flex;
+                align-content: center;
+                justify-content: flex-start;
+                padding-top: 16px;
+                flex-direction: column;
+                place-items: center;
+                gap: 8px;
+            }
+            
+            .titlebar > button, .sidebar > button{
+                padding:4px 8px 4px 8px;
+                border-radius:8px;
+                border:1px solid rgba(0,0,0,0.25);
+                background:transparent;
+                box-shadow: inset 0px 0px 2px 1px rgba(247,247,255,1);
+                /*background: linear-gradient(to left, #e2e2e2 0%,#dbdbdb 50%,#d1d1d1 51%,#fefefe 100%);*/
+                cursor:pointer;
+            }
+            .sidebar > button{
+                height:32px;
+                width:32px;
+            }
+            .titlebar > button:hover, .sidebar > button:hover{
+                border:1px solid rgba(0,0,0,0.5);
+                box-shadow: inset 0px 0px 2px 1px rgba(0,0,8,0.5);
+            }
+            .sidebar > button#tfa_add{
+                background: center / 75% no-repeat url(res/img/plus.svg);
+            }
+            .sidebar > button#tfa_remove{
+                background: center / 75% no-repeat url(res/img/minus.svg);
+            }
+            
+            .listing {
+                grid-area: 2 / 2 / 3 / 3;
+                border-right: 1px solid rgba(0,0,0,0.5);
+                box-shadow: inset 0px 0px 5px 0px #000000;
+                overflow-y:overlay;
+                background:rgb(240,240,240);
+            }
+            
+            .listing > .entry{
+                border-bottom:1px solid rgba(0,0,0,0.25);
+                width:100%;
+                height:100px;
+            }
+            
+            .details {
+                grid-area: 2 / 3 / 3 / 4;
+                border:1px solid rgba(0,0,0,0.5);
+            }
+            .footer {
+                /*grid-area: 3 / 1 / 4 / 4;*/
+                grid-area: 3 / 2 / 4 / 4;
+                display: flex;
+                align-items: center;
+                padding-left:4px;
+                background: linear-gradient(to bottom, #e8e8e8 0%,#ffffff 85%,#4c4c4c 98%,#000000 100%);
+            }
+        </style>
     </head>
     <body>
+        <div class="content">
+            <div class="corner"></div>
+            <div class="titlebar">
+                <span class="title">2FA Options</span>
+                <div class="seperator"></div>
+                <button>Import secrets</button>
+                <button>Export secrets</button>
+                <button>Create paper backup</button>
+                <button>Donate &lt;3</button>
+            </div>
+            <div class="sidebar">
+                <button id="tfa_add"></button>
+                <button id="tfa_remove"></button>
+            </div>
+            <div class="listing">
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+                <div class="entry"></div>
+            </div>
+            <div class="details"> </div>
+            <div class="footer"><span>Crafted with Love by <a href="https://github.com/FelixWolf">Kyler &quot;F&eacute;lix&quot; Eastridge<a/> | Version <span id="gitversion">aabbccdd (1234)</span></span></div>
+        </div>
     </body>
 </html>
