@@ -40,8 +40,8 @@ class URIHost{
                     if(name[i] == ":")
                         break;
             }
-            this.name = name.substring(0, i);
-            this.port = i==l?null:parseInt(name.substring(i+1,l));
+            this.name = name.substring(0, i++);
+            this.port = i>l?null:parseInt(name.substring(i,l));
         }else{
             this.name = name || null;
             this.port = port || null;
@@ -79,7 +79,9 @@ class URIAuthority{
         const uinfo = this.userinfo.toString();
         if(uinfo !== null)
             result += `${uinfo}@`;
-        result += this.host.toString();
+        const hinfo = this.host;
+        if(hinfo)
+            result += hinfo.toString();
         return result;
     }
 }
@@ -235,12 +237,13 @@ class TFAEntry{
             this.fromObject(opt);
         }
     }
+    
     fromURI(uri){
         let result = new URI(uri);
         if(result.scheme != "2fa")
             throw Error("Invalid URI!");
         this.username = result.authority.userinfo.username;
-        this.website = result.authority.host;
+        this.website = result.authority.host.name;
         let path = result.path.split("/").slice(1);
         this.secret = decodeURIComponent(path[0]);
         this.label = result.query.get("label")[0];
@@ -249,12 +252,14 @@ class TFAEntry{
         this.chars = result.query.get("chars")[0];
         this.format = result.query.get("format")[0];
         this.timeserver = result.query.get("timeserver")[0];
+        this.timeoffset = parseFloat(result.query.get("timeoffset")[0]);
     }
+    
     toURI(){
         let result = new URI();
         result.scheme = "2fa";
-        result.authority.userinfo.username = this.username;
-        result.authority.host = this.website;
+        if(this.username)result.authority.userinfo.username = this.username;
+        if(this.website)result.authority.host.name = this.website;
         result.path = `/${encodeURIComponent(this.secret)}`;
         if(this.label) result.query.add("label", this.label);
         if(this.encoding) result.query.add("encoding", this.encoding);
@@ -262,12 +267,21 @@ class TFAEntry{
         if(this.chars) result.query.add("chars", this.chars);
         if(this.format) result.query.add("format", this.format);
         if(this.timeserver) result.query.add("timeserver", this.timeserver);
+        console.log(result.toString());
         return result.toString();
     }
+    
+    toURIGoogle(){
+        const label = (this.website || "") + this.username?":"+this.username:"";
+        const issuer = this.website || this.username;
+        return `otpauth://totp/${encodeURIComponent(label)}?secret=${encodeURIComponent(this.secret)}&issuer=${encodeURIComponent(issuer)}`
+    }
+    
     fromObject(obj){
         for(let k of this.keys)
             this[k] = obj[k] || null;
     }
+    
     toObject(){
         let result = {};
         for(let k of this.keys){
@@ -282,30 +296,46 @@ class TFAStore{
     constructor(){
         this.load();
     }
+    
+    //TODO: Move this to secure storage
     load(){
-        let tmp = window.localStorage.getItem("2faStore");
-        if(tmp)
-            this.store = JSON.parse(tmp);
-        else
-            this.store = {};
+        let tmp = window.localStorage.getItem("2faStore") || "{}",
+            store = JSON.parse(tmp);
+        this.store = {};
+        for(let k in store){
+            this.store[k] = new TFAEntry();
+            this.store[k].fromURI(store[k]);
+        }
     }
+    
+    //TODO: Move this to secure storage
     save(){
-        window.localStorage.setItem("2faStore", JSON.stringify(this.store));
+        let store = {};
+        for(let k in this.store){
+            store[k] = this.store[k].toURI();
+        }
+        window.localStorage.setItem("2faStore", JSON.stringify(store));
+        chrome.runtime.sendMessage({name: "reload"});
     }
+    
     delete(entry){
         delete this.store[entry.label];
         this.save();
     }
+    
     add(entry){
         this.store[entry.label] = entry;
         this.save();
     }
+    
     get(name){
         return this.store[name];
     }
+    
     list(){
         return Object.keys(this.store);
     }
+    
     findByWebsite(name){
         name = name.toLowerCase()
         for(let entry of this.store){
@@ -346,8 +376,19 @@ function getTFAToken(entry, time){
     const digestdv = new DataView(digest.buffer);
     
     //Truncate it
-    truncatedHash = (digestdv.getUint32(digest[19]&0xF) & 0x7FFFFFFF) % 1000000;
+    let truncatedHash = (digestdv.getUint32(digest[19]&0xF) & 0x7FFFFFFF);
     
-    //Pad it and return it
-    return String(truncatedHash).padStart(6,0);
+    const length = entry.length || 6;
+    if(entry.chars){
+        let code = '';
+        const charLength = entry.chars.length;
+        for(let i = 0; i < length; i++){
+            code += entry.chars[truncatedHash % charLength];
+            truncatedHash = Math.floor(truncatedHash / charLength);
+        }
+        return code;
+    }else{
+        //Pad it and return it
+        return String(truncatedHash % Math.pow(10, length)).padStart(length,0);
+    }
 }

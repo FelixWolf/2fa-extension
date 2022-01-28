@@ -3,6 +3,16 @@ let contextRoot = chrome.contextMenus.create({
     contexts: ["all"],
     id: "root"
 });
+
+if(DEBUG)
+    chrome.contextMenus.create({
+        title: "Restart",
+        contexts: ["all"],
+        parentId: contextRoot,
+        onclick: function(data){
+            chrome.runtime.reload()
+        }
+    });
 chrome.contextMenus.create({
     title: "Manage...",
     contexts: ["all"],
@@ -46,20 +56,20 @@ chrome.contextMenus.create({
         });
     }
 });
-/*
+
 chrome.contextMenus.create({
     contexts: ["all"],
     parentId: contextRoot,
-    itemType: "separator"
+    type: "separator"
 });
-*/
+
 
 function getUniqueID(exclude){
     exclude = exclude || [];
     do{
         const k = new Array(16).fill(null).map(()=>Math.round(Math.random()*255).toString(16).padStart(2, '0')).join("");
         if(!(k in exclude)) return k;
-    }while(true)
+    }while(true);
 }
 
 let TFAContextMenus = {};
@@ -71,7 +81,6 @@ function createManagedContextMenu(data, ctx){
 
 function insertTFAToken(info, tab){
     if(info.menuItemId in TFAContextMenus) {
-        const text = "ASDF";
         chrome.tabs.sendMessage(tab.id, {
             name: "insertText",
             data: getTFAToken(TFAContextMenus[info.menuItemId])
@@ -82,11 +91,11 @@ function insertTFAToken(info, tab){
 let tokens = new TFAStore();
 
 function populateContextMenus(){
-    for(let ctx of TFAContextMenus)
+    for(let ctx in TFAContextMenus)
         chrome.contextMenus.remove(ctx);
     TFAContextMenus = [];
     for(let ctx of tokens.list()){
-        ctx = TFAStore.get(ctx);
+        ctx = tokens.get(ctx);
         let label = "";
         if(ctx.username)
             label += ctx.username;
@@ -96,21 +105,24 @@ function populateContextMenus(){
             label += ctx.label;
         }
         let website = "<all_urls>";
-        if(website)
+        if(ctx.website)
             website = `*://${ctx.website}/`;
         createManagedContextMenu({
             title: label,
             contexts: ["editable"],
             parentId: contextRoot,
-            documentUrlPatterns: website,
+            documentUrlPatterns: [website],
             onclick: insertTFAToken
         }, ctx);
     }
 }
 
-chrome.runtime.onMessage.addListener(function(message, callback){
+populateContextMenus();
+
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse){
     if(message.name == "reload"){
-        TFAStore.load();
+        tokens.load();
         populateContextMenus();
     }
+    return true;
 });

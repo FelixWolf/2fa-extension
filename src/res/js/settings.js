@@ -1,3 +1,6 @@
+const DEBUG = true,
+    DONATE_URL = "https://www.patreon.com/softhyena";
+
 let settingDefaults = {
     
 };
