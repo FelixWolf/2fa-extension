@@ -374,7 +374,6 @@ document.addEventListener("DOMContentLoaded", function(){
 });
 
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse){
-    console.log(message);
     if(message.name == "reload"){
         tokens.load();
         populateKeys();
